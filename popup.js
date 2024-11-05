@@ -89,13 +89,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Listen for selected elements
   chrome.runtime.onMessage.addListener(function(message) {
-    if (message.type === 'elementSelected') {
-      selectedSelectors = message.selectors;
+    if (message.type === 'elementSelected' || message.type === 'pickingStopped') {
+      // 更新选择器列表
+      selectedSelectors = message.selectors || [];
       updateSelectedElementsList();
-    } else if (message.type === 'pickingStopped') {
-      isPicking = false;
-      pickElementsBtn.textContent = 'Pick Elements';
-      pickElementsBtn.classList.remove('picking');
+      
+      // 如果是停止选择，更新按钮状态
+      if (message.type === 'pickingStopped') {
+        isPicking = false;
+        pickElementsBtn.textContent = 'Pick Elements';
+        pickElementsBtn.classList.remove('picking');
+        
+        // 显示选择的元素列表
+        if (selectedSelectors.length > 0) {
+          selectedElements.style.display = 'block';
+        }
+      }
     } else if (message.type === 'scrapeResult') {
       loadingElement.style.display = 'none';
       resultContainer.style.display = 'block';
@@ -106,25 +115,123 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function updateSelectedElementsList() {
     selectedItemsList.innerHTML = '';
+    if (selectedSelectors.length === 0) {
+      selectedElements.style.display = 'none';
+      return;
+    }
+    
     selectedSelectors.forEach(selector => {
       const item = document.createElement('div');
       item.className = 'selected-item';
       item.innerHTML = `
-        <span>${selector}</span>
-        <span class="remove">×</span>
+        <span title="${selector}">${truncateText(selector, 40)}</span>
+        <span class="remove" title="Remove">×</span>
       `;
       
       item.querySelector('.remove').addEventListener('click', () => {
         selectedSelectors = selectedSelectors.filter(s => s !== selector);
         updateSelectedElementsList();
+        
+        // 如果没有选中的元素，隐藏列表
+        if (selectedSelectors.length === 0) {
+          selectedElements.style.display = 'none';
+        }
       });
       
       selectedItemsList.appendChild(item);
     });
   }
 
-  // Export functions remain the same...
-  // [Previous downloadCSV and downloadJSON functions]
+  // 添加辅助函数来截断长文本
+  function truncateText(text, maxLength) {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength - 3) + '...';
+  }
+
+  // 添加导出按钮事件监听
+  exportCsvBtn.addEventListener('click', function() {
+    if (scrapeResult) {
+      downloadCSV(scrapeResult);
+    }
+  });
+
+  exportJsonBtn.addEventListener('click', function() {
+    if (scrapeResult) {
+      downloadJSON(scrapeResult);
+    }
+  });
+
+  // 添加导出功能的实现
+  function downloadCSV(data) {
+    let csv = '';
+    let headers = new Set();
+    
+    // 处理数据结构，提取所有可能的标题
+    if (Array.isArray(data)) {
+      // 如果是选择器模式的数据
+      data.forEach(item => {
+        if (item.elements) {
+          item.elements.forEach(element => {
+            Object.keys(element).forEach(key => headers.add(key));
+          });
+        }
+      });
+      
+      // 转换数据格式
+      headers = Array.from(headers);
+      csv = headers.join(',') + '\n';
+      
+      data.forEach(item => {
+        if (item.elements) {
+          item.elements.forEach(element => {
+            const row = headers.map(header => {
+              let value = element[header];
+              if (typeof value === 'object') {
+                value = JSON.stringify(value);
+              }
+              // 处理CSV中的特殊字符
+              return `"${(value || '').toString().replace(/"/g, '""')}"`;
+            });
+            csv += row.join(',') + '\n';
+          });
+        }
+      });
+    } else {
+      // 如果是整页模式的数据
+      Object.keys(data).forEach(key => {
+        let value = data[key];
+        if (typeof value === 'object') {
+          value = JSON.stringify(value);
+        }
+        csv += `"${key}","${(value || '').toString().replace(/"/g, '""')}"\n`;
+      });
+    }
+
+    // 创建并下载文件
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `scraped_data_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadJSON(data) {
+    // 创建格式化的JSON字符串
+    const jsonString = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `scraped_data_${new Date().getTime()}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
 
   wholePage.classList.add('active');
 }); 
