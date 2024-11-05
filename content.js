@@ -33,19 +33,51 @@ function scrapeBySelectors(selectors) {
       
       return {
         selector: simplifiedSelector,
-        elements: Array.from(elements).map(element => ({
-          text: element.innerText.trim(),
-          html: element.outerHTML,
-          tagName: element.tagName.toLowerCase(),
-          attributes: {
-            id: element.id || null,
-            class: element.className || null,
-            href: element.href || null,
-            src: element.src || null,
-            value: element.value || null,
-            type: element.type || null
+        elements: Array.from(elements).map(element => {
+          // 基础数据
+          const baseData = {
+            text: element.innerText.trim(),
+            html: element.outerHTML,
+            tagName: element.tagName.toLowerCase(),
+            attributes: {
+              id: element.id || null,
+              class: element.className || null,
+              href: element.href || null,
+              type: element.type || null
+            }
+          };
+
+          // 如果是图片元素，添加图片特有的属性
+          if (element.tagName.toLowerCase() === 'img') {
+            baseData.imageData = {
+              src: element.src || null,
+              alt: element.alt || null,
+              naturalWidth: element.naturalWidth || null,
+              naturalHeight: element.naturalHeight || null
+            };
           }
-        }))
+
+          // 检查背景图片
+          const computedStyle = window.getComputedStyle(element);
+          const backgroundImage = computedStyle.backgroundImage;
+          if (backgroundImage && backgroundImage !== 'none') {
+            baseData.backgroundImage = backgroundImage.replace(/url\(['"]?(.*?)['"]?\)/g, '$1');
+          }
+
+          // 递归查找子元素中的图片
+          const childImages = Array.from(element.querySelectorAll('img')).map(img => ({
+            src: img.src || null,
+            alt: img.alt || null,
+            naturalWidth: img.naturalWidth || null,
+            naturalHeight: img.naturalHeight || null
+          }));
+
+          if (childImages.length > 0) {
+            baseData.childImages = childImages;
+          }
+
+          return baseData;
+        })
       };
     }).filter(item => item.elements.length > 0);
 
