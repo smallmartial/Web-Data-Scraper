@@ -4,7 +4,7 @@ chrome.storage.local.get('scrapeConfig', function(data) {
   if (config.mode === 'whole-page') {
     scrapeWholePage();
   } else if (config.mode === 'selector') {
-    scrapeBySelectorMode(config.selector);
+    scrapeBySelectors(config.selectors);
   }
 });
 
@@ -20,26 +20,26 @@ function scrapeWholePage() {
   saveAndSendData(data, 'whole-page');
 }
 
-function scrapeBySelectorMode(selector) {
-  if (!selector) {
-    console.error('No selector provided');
+function scrapeBySelectors(selectors) {
+  if (!selectors || selectors.length === 0) {
+    console.error('No selectors provided');
     return;
   }
 
   try {
-    const elements = document.querySelectorAll(selector);
-    if (elements.length === 0) {
-      console.warn('No matching elements found');
-      return;
-    }
+    const data = selectors.map(selector => {
+      const elements = document.querySelectorAll(selector);
+      return {
+        selector: selector,
+        elements: Array.from(elements).map(element => ({
+          text: element.innerText,
+          html: element.outerHTML,
+          attributes: getElementAttributes(element)
+        }))
+      };
+    });
 
-    const data = Array.from(elements).map(element => ({
-      text: element.innerText,
-      html: element.outerHTML,
-      attributes: getElementAttributes(element)
-    }));
-
-    console.log('Selector scraping data:', data);
+    console.log('Selected elements data:', data);
     saveAndSendData(data, 'selector');
   } catch (error) {
     console.error('Selector scraping error:', error);

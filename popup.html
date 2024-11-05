@@ -28,12 +28,6 @@
       border-color: #4285f4;
       background-color: #e8f0fe;
     }
-    .selector-input {
-      margin-top: 15px;
-      width: 100%;
-      padding: 8px;
-      box-sizing: border-box;
-    }
     .button {
       margin-top: 10px;
       width: 100%;
@@ -46,6 +40,9 @@
     }
     .button:hover {
       background-color: #3367d6;
+    }
+    .button.picking {
+      background-color: #fbbc05;
     }
     .result-container {
       margin-top: 20px;
@@ -73,6 +70,23 @@
       margin: 10px 0;
       display: none;
     }
+    .selected-elements {
+      margin-top: 15px;
+      display: none;
+    }
+    .selected-item {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      background: #f5f5f5;
+      margin: 5px 0;
+      border-radius: 4px;
+    }
+    .selected-item .remove {
+      margin-left: auto;
+      color: #d93025;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -84,12 +98,18 @@
     </div>
     <div class="mode-card" id="selector-mode">
       <h3>Selector Mode</h3>
-      <p>Use CSS selector to scrape</p>
+      <p>Pick elements to scrape</p>
     </div>
   </div>
-  <div id="selector-input-container" style="display: none;">
-    <input type="text" id="selector-input" class="selector-input" placeholder="Enter CSS selector, e.g. .product-item">
+  
+  <div id="selector-controls" style="display: none;">
+    <button id="pick-elements" class="button">Pick Elements</button>
+    <div id="selected-elements" class="selected-elements">
+      <h4>Selected Elements:</h4>
+      <div id="selected-items-list"></div>
+    </div>
   </div>
+
   <button id="start-scrape" class="button">Start Scraping</button>
   
   <div class="loading" id="loading">

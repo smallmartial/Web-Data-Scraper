@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Web Data Scraper",
   "version": "1.0",
-  "description": "A powerful web scraping tool with full page and selector modes",
+  "description": "A powerful web scraping tool with element picker",
   "permissions": [
     "activeTab",
     "storage",
