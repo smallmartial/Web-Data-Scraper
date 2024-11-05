@@ -39,12 +39,7 @@ function scrapeBySelectors(selectors) {
             text: element.innerText.trim(),
             html: element.outerHTML,
             tagName: element.tagName.toLowerCase(),
-            attributes: {
-              id: element.id || null,
-              class: element.className || null,
-              href: element.href || null,
-              type: element.type || null
-            }
+            attributes: getElementAttributes(element)
           };
 
           // 如果是图片元素，添加图片特有的属性
@@ -84,7 +79,7 @@ function scrapeBySelectors(selectors) {
     console.log('Selected elements data:', data);
     saveAndSendData(data, 'selector');
   } catch (error) {
-    console.error('Selector scraping error:', error);
+    console.error('Scraping error:', error);
   }
 }
 
@@ -113,14 +108,6 @@ function getElementAttributes(element) {
 }
 
 function saveAndSendData(data, type) {
-  if (data.length === 0) {
-    chrome.runtime.sendMessage({
-      type: 'scrapeError',
-      error: 'No elements found with the selected selectors'
-    });
-    return;
-  }
-
   const saveObject = {
     data: data,
     timestamp: new Date().toISOString(),
