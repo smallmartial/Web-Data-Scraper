@@ -17,12 +17,60 @@ document.addEventListener('DOMContentLoaded', function() {
   let selectedSelectors = [];
   let isPicking = false;
 
+  // 在初始化时恢复状态
+  chrome.storage.local.get(['scraperState'], function(result) {
+    if (result.scraperState) {
+      const state = result.scraperState;
+      currentMode = state.mode || 'whole-page';
+      selectedSelectors = state.selectors || [];
+      isPicking = state.isPicking || false;
+
+      // 恢复模式选择
+      if (currentMode === 'selector') {
+        selectorMode.classList.add('active');
+        wholePage.classList.remove('active');
+        selectorControls.style.display = 'block';
+        selectedElements.style.display = 'block';
+      } else {
+        wholePage.classList.add('active');
+        selectorMode.classList.remove('active');
+        selectorControls.style.display = 'none';
+        selectedElements.style.display = 'none';
+      }
+
+      // 恢复选择状态
+      if (isPicking) {
+        pickElementsBtn.textContent = 'Stop Picking';
+        pickElementsBtn.classList.add('picking');
+      }
+
+      // 恢复已选择的元素列表
+      if (selectedSelectors.length > 0) {
+        updateSelectedElementsList(state.preview);
+      }
+    } else {
+      wholePage.classList.add('active');
+    }
+  });
+
+  // 保存状态的函数
+  function saveState() {
+    const state = {
+      mode: currentMode,
+      selectors: selectedSelectors,
+      isPicking: isPicking,
+      preview: scrapeResult
+    };
+    chrome.storage.local.set({ 'scraperState': state });
+  }
+
   wholePage.addEventListener('click', function() {
     currentMode = 'whole-page';
     wholePage.classList.add('active');
     selectorMode.classList.remove('active');
     selectorControls.style.display = 'none';
     selectedElements.style.display = 'none';
+    saveState();
   });
 
   selectorMode.addEventListener('click', function() {
@@ -31,6 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
     wholePage.classList.remove('active');
     selectorControls.style.display = 'block';
     selectedElements.style.display = 'block';
+    saveState();
   });
 
   pickElementsBtn.addEventListener('click', function() {
@@ -40,6 +89,7 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
       stopPicking();
     }
+    saveState();
   });
 
   function startPicking() {
@@ -50,7 +100,10 @@ document.addEventListener('DOMContentLoaded', function() {
         target: {tabId: tabs[0].id},
         files: ['picker.js']
       }).then(() => {
-        chrome.tabs.sendMessage(tabs[0].id, { type: 'startPicking' });
+        chrome.tabs.sendMessage(tabs[0].id, { 
+          type: 'startPicking',
+          selectors: selectedSelectors // 传递已选择的选择器
+        });
       });
     });
   }
@@ -90,9 +143,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Listen for selected elements
   chrome.runtime.onMessage.addListener(function(message) {
     if (message.type === 'elementSelected' || message.type === 'pickingStopped') {
-      // 更新选择器列表
+      // 更新选择器列表和预览
       selectedSelectors = message.selectors || [];
-      updateSelectedElementsList();
+      updateSelectedElementsList(message.preview);
       
       // 如果是停止选择，更新按钮状态
       if (message.type === 'pickingStopped') {
@@ -103,38 +156,52 @@ document.addEventListener('DOMContentLoaded', function() {
         // 显示选择的元素列表
         if (selectedSelectors.length > 0) {
           selectedElements.style.display = 'block';
+          resultContainer.style.display = 'block';
+          resultPreview.textContent = JSON.stringify(message.preview, null, 2);
         }
       }
+      saveState();
     } else if (message.type === 'scrapeResult') {
       loadingElement.style.display = 'none';
       resultContainer.style.display = 'block';
       scrapeResult = message.data;
       resultPreview.textContent = JSON.stringify(scrapeResult, null, 2);
+      saveState();
     }
   });
 
-  function updateSelectedElementsList() {
+  function updateSelectedElementsList(preview) {
     selectedItemsList.innerHTML = '';
     if (selectedSelectors.length === 0) {
       selectedElements.style.display = 'none';
+      resultContainer.style.display = 'none';
       return;
     }
     
-    selectedSelectors.forEach(selector => {
+    selectedSelectors.forEach((selector, index) => {
       const item = document.createElement('div');
       item.className = 'selected-item';
+      
+      // 获取预览数据
+      const previewData = preview ? preview[index] : null;
+      const previewText = previewData ? 
+        previewData.preview.map(p => `${p.tag}: ${p.text}`).join('\n') : '';
+      
       item.innerHTML = `
-        <span title="${selector}">${truncateText(selector, 40)}</span>
+        <div class="selector-info">
+          <span class="selector" title="${selector}">${truncateText(selector, 40)}</span>
+          ${previewText ? `<div class="preview-text">${previewText}</div>` : ''}
+        </div>
         <span class="remove" title="Remove">×</span>
       `;
       
       item.querySelector('.remove').addEventListener('click', () => {
         selectedSelectors = selectedSelectors.filter(s => s !== selector);
-        updateSelectedElementsList();
+        updateSelectedElementsList(preview);
         
-        // 如果没有选中的元素，隐藏列表
         if (selectedSelectors.length === 0) {
           selectedElements.style.display = 'none';
+          resultContainer.style.display = 'none';
         }
       });
       
