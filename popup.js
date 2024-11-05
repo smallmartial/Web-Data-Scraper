@@ -143,17 +143,14 @@ document.addEventListener('DOMContentLoaded', function() {
   // Listen for selected elements
   chrome.runtime.onMessage.addListener(function(message) {
     if (message.type === 'elementSelected' || message.type === 'pickingStopped') {
-      // 更新选择器列表和预览
       selectedSelectors = message.selectors || [];
       updateSelectedElementsList(message.preview);
       
-      // 如果是停止选择，更新按钮状态
       if (message.type === 'pickingStopped') {
         isPicking = false;
         pickElementsBtn.textContent = 'Pick Elements';
         pickElementsBtn.classList.remove('picking');
         
-        // 显示选择的元素列表
         if (selectedSelectors.length > 0) {
           selectedElements.style.display = 'block';
           resultContainer.style.display = 'block';
@@ -164,11 +161,17 @@ document.addEventListener('DOMContentLoaded', function() {
     } else if (message.type === 'scrapeResult') {
       loadingElement.style.display = 'none';
       resultContainer.style.display = 'block';
-      if (message.data && message.data.length > 0) {
+      
+      if (currentMode === 'whole-page') {
         scrapeResult = message.data;
         resultPreview.textContent = JSON.stringify(scrapeResult, null, 2);
       } else {
-        resultPreview.textContent = 'No data found for the selected elements.';
+        if (message.data && message.data.length > 0) {
+          scrapeResult = message.data;
+          resultPreview.textContent = JSON.stringify(scrapeResult, null, 2);
+        } else {
+          resultPreview.textContent = 'No data found for the selected elements.';
+        }
       }
       saveState();
     } else if (message.type === 'scrapeError') {
