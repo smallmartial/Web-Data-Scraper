@@ -164,9 +164,17 @@ document.addEventListener('DOMContentLoaded', function() {
     } else if (message.type === 'scrapeResult') {
       loadingElement.style.display = 'none';
       resultContainer.style.display = 'block';
-      scrapeResult = message.data;
-      resultPreview.textContent = JSON.stringify(scrapeResult, null, 2);
+      if (message.data && message.data.length > 0) {
+        scrapeResult = message.data;
+        resultPreview.textContent = JSON.stringify(scrapeResult, null, 2);
+      } else {
+        resultPreview.textContent = 'No data found for the selected elements.';
+      }
       saveState();
+    } else if (message.type === 'scrapeError') {
+      loadingElement.style.display = 'none';
+      resultContainer.style.display = 'block';
+      resultPreview.textContent = `Error: ${message.error}`;
     }
   });
 

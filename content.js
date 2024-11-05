@@ -28,16 +28,26 @@ function scrapeBySelectors(selectors) {
 
   try {
     const data = selectors.map(selector => {
-      const elements = document.querySelectorAll(selector);
+      const simplifiedSelector = simplifySelector(selector);
+      const elements = document.querySelectorAll(simplifiedSelector);
+      
       return {
-        selector: selector,
+        selector: simplifiedSelector,
         elements: Array.from(elements).map(element => ({
-          text: element.innerText,
+          text: element.innerText.trim(),
           html: element.outerHTML,
-          attributes: getElementAttributes(element)
+          tagName: element.tagName.toLowerCase(),
+          attributes: {
+            id: element.id || null,
+            class: element.className || null,
+            href: element.href || null,
+            src: element.src || null,
+            value: element.value || null,
+            type: element.type || null
+          }
         }))
       };
-    });
+    }).filter(item => item.elements.length > 0);
 
     console.log('Selected elements data:', data);
     saveAndSendData(data, 'selector');
@@ -46,29 +56,51 @@ function scrapeBySelectors(selectors) {
   }
 }
 
+function simplifySelector(selector) {
+  const parts = selector.split('>').map(part => part.trim());
+  const lastPart = parts[parts.length - 1];
+  
+  const simplified = lastPart.split('.').filter(part => {
+    return !part.includes('scraper-') && 
+           !part.includes('highlight') &&
+           !part.includes('selected');
+  }).join('.');
+  
+  return simplified;
+}
+
 function getElementAttributes(element) {
   const attributes = {};
   for (const attr of element.attributes) {
-    attributes[attr.name] = attr.value;
+    if (!attr.name.includes('scraper-') && 
+        !attr.value.includes('scraper-')) {
+      attributes[attr.name] = attr.value;
+    }
   }
   return attributes;
 }
 
 function saveAndSendData(data, type) {
+  if (data.length === 0) {
+    chrome.runtime.sendMessage({
+      type: 'scrapeError',
+      error: 'No elements found with the selected selectors'
+    });
+    return;
+  }
+
   const saveObject = {
     data: data,
     timestamp: new Date().toISOString(),
     url: window.location.href
   };
 
-  // Save to storage
   chrome.storage.local.set({
     [`scraped_${type}_data`]: saveObject
   }, function() {
     console.log('Data saved');
   });
 
-  // Send message to popup
   chrome.runtime.sendMessage({
     type: 'scrapeResult',
     data: data
